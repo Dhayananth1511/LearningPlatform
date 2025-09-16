@@ -51,7 +51,6 @@ const Header: React.FC = () => {
               <Home className="w-4 h-4" />
               <span>Home</span>
             </button>
-            {userRole === 'teacher' ? (
             {profile.role === 'teacher' ? (
               <>
                 <button className="flex items-center space-x-1 text-gray-600 hover:text-gray-900">
@@ -120,8 +119,6 @@ const Header: React.FC = () => {
           </div>
         </div>
       </div>
-    )
-    }
     </header>
   );
 };
