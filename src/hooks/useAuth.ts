@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
 
 export interface UserProfile {
   id: string;
@@ -9,93 +8,76 @@ export interface UserProfile {
   role: 'teacher' | 'student';
 }
 
+// Demo users for offline functionality
+const DEMO_USERS = [
+  { id: '1', email: 'rajesh@student.com', password: 'demo123', full_name: 'Rajesh Kumar', role: 'student' as const },
+  { id: '2', email: 'priya@student.com', password: 'demo123', full_name: 'Priya Singh', role: 'student' as const },
+  { id: '3', email: 'sunil@teacher.com', password: 'demo123', full_name: 'Dr. Sunil Sharma', role: 'teacher' as const },
+  { id: '4', email: 'kavita@teacher.com', password: 'demo123', full_name: 'Mrs. Kavita Patel', role: 'teacher' as const },
+];
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
+    // Check for stored demo session
+    const storedProfile = localStorage.getItem('demo_profile');
+    if (storedProfile) {
+      try {
+        const profile = JSON.parse(storedProfile);
+        setProfile(profile);
+        setUser({ id: profile.id, email: profile.email } as User);
+      } catch (error) {
+        console.error('Error parsing stored profile:', error);
       }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
+    }
+    setLoading(false);
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      if (error) throw error;
-      setProfile(data);
-    } catch (error) {
-      console.error('Error fetching profile:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const signUp = async (email: string, password: string, fullName: string, role: 'teacher' | 'student') => {
-    const { data, error } = await supabase.auth.signUp({
+    // Demo signup - create a new demo user
+    const newUser = {
+      id: Date.now().toString(),
       email,
-      password,
-    });
-
-    if (error) throw error;
-
-    if (data.user) {
-      // Create profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email,
-          full_name: fullName,
-          role,
-        });
-
-      if (profileError) throw profileError;
-    }
-
-    return data;
+      full_name: fullName,
+      role,
+    };
+    
+    setProfile(newUser);
+    setUser({ id: newUser.id, email: newUser.email } as User);
+    localStorage.setItem('demo_profile', JSON.stringify(newUser));
+    
+    return { user: { id: newUser.id, email } };
   };
 
   const signIn = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) throw error;
-    return data;
+    // Demo signin - check against demo users
+    const demoUser = DEMO_USERS.find(u => u.email === email && u.password === password);
+    
+    if (!demoUser) {
+      throw new Error('Invalid email or password');
+    }
+    
+    const profile = {
+      id: demoUser.id,
+      email: demoUser.email,
+      full_name: demoUser.full_name,
+      role: demoUser.role,
+    };
+    
+    setProfile(profile);
+    setUser({ id: profile.id, email: profile.email } as User);
+    localStorage.setItem('demo_profile', JSON.stringify(profile));
+    
+    return { user: { id: profile.id, email: profile.email } };
   };
 
   const signOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) throw error;
+    setProfile(null);
+    setUser(null);
+    localStorage.removeItem('demo_profile');
   };
 
   return {

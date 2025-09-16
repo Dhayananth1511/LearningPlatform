@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 
 export interface Quiz {
   id: string;
@@ -29,68 +28,82 @@ export interface QuizAttempt {
   completed_at: string;
 }
 
+// Demo quizzes data
+const DEMO_QUIZZES: Quiz[] = [
+  {
+    id: '1',
+    title: 'Basic Math Quiz',
+    description: 'Test your knowledge of basic mathematical operations',
+    lesson_id: '1',
+    teacher_id: '3',
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    questions: [
+      {
+        id: '1',
+        question: 'What is 5 + 3?',
+        options: ['6', '7', '8', '9'],
+        correct_answer: 2,
+        explanation: '5 + 3 = 8. When adding, we combine the two numbers together.'
+      },
+      {
+        id: '2',
+        question: 'What is 12 ÷ 4?',
+        options: ['2', '3', '4', '5'],
+        correct_answer: 1,
+        explanation: '12 ÷ 4 = 3. Division means splitting 12 into 4 equal groups, each group has 3.'
+      }
+    ]
+  }
+];
 export function useQuizzes() {
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchQuizzes();
+    // Load demo quizzes
+    setQuizzes(DEMO_QUIZZES);
+    setLoading(false);
   }, []);
 
-  const fetchQuizzes = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('quizzes')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setQuizzes(data || []);
-    } catch (error) {
-      console.error('Error fetching quizzes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const createQuiz = async (quiz: Omit<Quiz, 'id' | 'created_at' | 'updated_at'>) => {
-    const { data, error } = await supabase
-      .from('quizzes')
-      .insert(quiz)
-      .select()
-      .single();
-
-    if (error) throw error;
+    const newQuiz: Quiz = {
+      ...quiz,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
     
-    setQuizzes(prev => [data, ...prev]);
-    return data;
+    setQuizzes(prev => [newQuiz, ...prev]);
+    return newQuiz;
   };
 
   const submitQuizAttempt = async (attempt: Omit<QuizAttempt, 'id' | 'created_at'>) => {
-    const { data, error } = await supabase
-      .from('quiz_attempts')
-      .insert(attempt)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
+    // Demo implementation - store in localStorage
+    const newAttempt: QuizAttempt = {
+      ...attempt,
+      id: Date.now().toString(),
+      created_at: new Date().toISOString(),
+    };
+    
+    const attempts = JSON.parse(localStorage.getItem('quiz_attempts') || '[]');
+    attempts.push(newAttempt);
+    localStorage.setItem('quiz_attempts', JSON.stringify(attempts));
+    
+    return newAttempt;
   };
 
   const getQuizAttempts = async (studentId: string, quizId?: string) => {
-    let query = supabase
-      .from('quiz_attempts')
-      .select('*')
-      .eq('student_id', studentId);
-
+    // Demo implementation - get from localStorage
+    const attempts: QuizAttempt[] = JSON.parse(localStorage.getItem('quiz_attempts') || '[]');
+    let filtered = attempts.filter(attempt => attempt.student_id === studentId);
+    
     if (quizId) {
-      query = query.eq('quiz_id', quizId);
+      filtered = filtered.filter(attempt => attempt.quiz_id === quizId);
     }
-
-    const { data, error } = await query.order('completed_at', { ascending: false });
-
-    if (error) throw error;
-    return data || [];
+    
+    return filtered.sort((a, b) => new Date(b.completed_at).getTime() - new Date(a.completed_at).getTime());
   };
 
   return {
@@ -99,6 +112,6 @@ export function useQuizzes() {
     createQuiz,
     submitQuizAttempt,
     getQuizAttempts,
-    refetch: fetchQuizzes,
+    refetch: () => setQuizzes(DEMO_QUIZZES),
   };
 }
